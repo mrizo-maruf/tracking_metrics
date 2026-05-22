@@ -1,0 +1,25 @@
+{
+  "sequence_name": "scene_001",
+  "frames": [
+    {
+      "frame_id": 0,
+      "detections": [
+        {"track_id": 1, "class_id": "person", "score": 1.0, "bbox2d": [100, 150, 200, 350]},
+        {"track_id": 2, "class_id": "person", "score": 1.0, "bbox2d": [400, 150, 500, 350]}
+      ]
+    },
+    {
+      "frame_id": 1,
+      "detections": [
+        {"track_id": 1, "class_id": "person", "score": 1.0, "bbox2d": [105, 152, 205, 352]},
+        {"track_id": 2, "class_id": "person", "score": 1.0, "bbox2d": [405, 152, 505, 352]}
+      ]
+    },
+    {
+      "frame_id": 2,
+      "detections": [
+        {"track_id": 1, "class_id": "person", "score": 1.0, "bbox2d": [110, 155, 210, 355]}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "sequence_name": "scene_001",
+  "frames": [
+    {
+      "frame_id": 0,
+      "detections": [
+        {"track_id": 10, "score": 0.95, "bbox2d": [102, 151, 201, 351]},
+        {"track_id": 20, "score": 0.92, "bbox2d": [401, 151, 501, 351]}
+      ]
+    },
+    {
+      "frame_id": 1,
+      "detections": [
+        {"track_id": 10, "score": 0.94, "bbox2d": [106, 153, 206, 353]},
+        {"track_id": 30, "score": 0.88, "bbox2d": [406, 153, 506, 353]}
+      ]
+    },
+    {
+      "frame_id": 2,
+      "detections": [
+        {"track_id": 10, "score": 0.93, "bbox2d": [111, 156, 211, 356]},
+        {"track_id": 99, "score": 0.50, "bbox2d": [700, 700, 800, 800]}
+      ]
+    }
+  ]
+}
