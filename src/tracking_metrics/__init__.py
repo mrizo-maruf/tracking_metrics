@@ -1,3 +1,3 @@
 """tracking-metrics: dataset-independent Python library for multi-object tracking evaluation."""
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"

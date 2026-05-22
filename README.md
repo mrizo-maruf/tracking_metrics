@@ -124,6 +124,35 @@ results = evaluator.evaluate(gt, pred)
 print_results_table(results)
 ```
 
+### Advanced metrics (HOTA, trajectory)
+
+```python
+from tracking_metrics.metrics.hota import HOTAMetric
+from tracking_metrics.metrics.fragmentation import FragmentationsMetric
+from tracking_metrics.metrics.track_coverage import TrackCoverageMetric
+from tracking_metrics.metrics.track_survival import TrackSurvivalRateMetric
+from tracking_metrics.metrics.id_consistency import IDConsistencyMetric
+from tracking_metrics.report.csv_report import save_csv_report
+from tracking_metrics.report.latex_table import save_latex_report
+from tracking_metrics.report.summary import format_summary
+
+metrics = [
+    DetectionCountsMetric(), IDSwitchesMetric(), MOTAMetric(), MOTPMetric(),
+    HOTAMetric(return_curves=True),
+    FragmentationsMetric(),
+    TrackCoverageMetric(),
+    TrackSurvivalRateMetric(),
+    IDConsistencyMetric(),
+]
+
+evaluator = TrackingEvaluator(matcher=matcher, metrics=metrics)
+results = evaluator.evaluate(gt, pred)
+
+save_csv_report(results, "results.csv")
+save_latex_report(results, "results.tex", caption="Tracking results")
+print(format_summary(results))
+```
+
 Access frame-level events directly:
 
 ```python
@@ -187,11 +216,42 @@ track-metrics evaluate \
   --output results_3d_dist.json
 ```
 
+### HOTA and advanced metrics
+
+```bash
+track-metrics evaluate \
+  --gt examples/gt.json \
+  --pred examples/pred.json \
+  --matcher box2d-iou \
+  --threshold 0.5 \
+  --metrics hota --metrics frag --metrics track-coverage --metrics t-sr --metrics id-cons \
+  --output results.json
+```
+
+With per-threshold HOTA curves:
+
+```bash
+track-metrics evaluate \
+  --gt examples/gt.json --pred examples/pred.json \
+  --metrics hota --hota-curves \
+  --output results.json
+```
+
+Save as CSV or LaTeX:
+
+```bash
+track-metrics evaluate --gt examples/gt.json --pred examples/pred.json --output results.csv
+track-metrics evaluate --gt examples/gt.json --pred examples/pred.json --output results.tex
+```
+
 Pass `--metrics` once per metric name. Omitting `--metrics` entirely runs all metrics.
 
 Supported matchers: `box2d-iou`, `mask-iou`, `box3d-iou`, `center-distance`.
 
-## Supported Metrics (v0.3)
+Supported metric names: `counts`, `mota`, `motp`, `idsw`, `idf1`, `t-miou`, `t-dice`,
+`mean-box3d-iou`, `mean-center-dist-3d`, `hota`, `frag`, `track-coverage`, `t-sr`, `id-cons`.
+
+## Supported Metrics (v0.4)
 
 | Metric | Description |
 |--------|-------------|
@@ -213,6 +273,18 @@ Supported matchers: `box2d-iou`, `mask-iou`, `box3d-iou`, `center-distance`.
 | `T-Dice` | Temporal mean Dice score over matched pairs with masks |
 | `MeanBox3DIoU` | Average axis-aligned 3D IoU over matched pairs with 3D boxes |
 | `MeanCenterDist3D` | Average Euclidean center distance (raw, in world units) over matched pairs with 3D boxes |
+| `HOTA` | Higher Order Tracking Accuracy — joint detection + association quality via threshold sweep |
+| `DetA` | Detection Accuracy component of HOTA |
+| `AssA` | Association Accuracy component of HOTA |
+| `LocA` | Localization Accuracy (mean similarity of matched pairs across thresholds) |
+| `OWTA` | Open-World Tracking Accuracy |
+| `DetRe` / `DetPr` | Detection Recall / Precision |
+| `AssRe` / `AssPr` | Association Recall / Precision |
+| `Frag` | Number of GT track fragmentations (breaks and re-appearances) |
+| `MT` / `PT` / `ML` | Mostly Tracked / Partially Tracked / Mostly Lost track counts |
+| `MT%` / `PT%` / `ML%` | Track coverage percentages |
+| `T-SR` | Track Survival Rate — fraction of GT tracks with at least one match |
+| `IDCons` | ID Consistency — average fraction of matched frames using the majority predicted ID |
 
 ### MOTP vs MeanBox3DIoU vs MeanCenterDist3D
 
@@ -247,7 +319,6 @@ See [docs/3d_tracking.md](docs/3d_tracking.md) for recommended thresholds and mo
 ## Current Limitations
 
 - Oriented 3D IoU (using yaw) is not yet implemented.
-- HOTA is not implemented.
 - Visualization tools are not included.
 - No dataset-specific adapters. Bring your own converter to the JSON format above.
 

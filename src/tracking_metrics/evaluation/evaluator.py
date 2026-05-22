@@ -76,10 +76,14 @@ class TrackingEvaluator:
             frame_results.append(
                 FrameResult(
                     frame_id=fid,
+                    gt_detections=gt_dets,
+                    pred_detections=pred_dets,
                     matches=matches,
                     false_positives=false_positives,
                     false_negatives=false_negatives,
                     id_switches=id_switches,
+                    similarity_matrix=match_result.similarity_matrix,
+                    distance_matrix=match_result.distance_matrix,
                 )
             )
 
