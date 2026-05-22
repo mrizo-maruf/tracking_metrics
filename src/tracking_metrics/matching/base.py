@@ -14,6 +14,7 @@ class MatchResult:
     unmatched_gt: list[int]
     unmatched_pred: list[int]
     similarity_matrix: np.ndarray
+    distance_matrix: np.ndarray | None = None
 
 
 class Matcher(Protocol):

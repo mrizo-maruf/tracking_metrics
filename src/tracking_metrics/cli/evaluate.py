@@ -8,10 +8,13 @@ import typer
 from tracking_metrics.data.sequence import Sequence
 from tracking_metrics.evaluation.evaluator import TrackingEvaluator
 from tracking_metrics.matching.box2d_iou_matcher import Box2DIoUMatcher
+from tracking_metrics.matching.box3d_iou_matcher import Box3DIoUMatcher
+from tracking_metrics.matching.center_distance_matcher import CenterDistanceMatcher
 from tracking_metrics.matching.mask_iou_matcher import MaskIoUMatcher
 from tracking_metrics.metrics.detection_counts import DetectionCountsMetric
 from tracking_metrics.metrics.id_switches import IDSwitchesMetric
 from tracking_metrics.metrics.idf1 import IDF1Metric
+from tracking_metrics.metrics.localization3d import MeanBox3DIoU, MeanCenterDistance3D
 from tracking_metrics.metrics.mota import MOTAMetric
 from tracking_metrics.metrics.motp import MOTPMetric
 from tracking_metrics.metrics.temporal_iou import TemporalDiceMetric, TemporalIoUMetric
@@ -34,9 +37,11 @@ _METRIC_MAP = {
     "idf1": IDF1Metric,
     "t-miou": TemporalIoUMetric,
     "t-dice": TemporalDiceMetric,
+    "mean-center-dist-3d": MeanCenterDistance3D,
+    "mean-box3d-iou": MeanBox3DIoU,
 }
 
-_MATCHERS = ("box2d-iou", "mask-iou")
+_MATCHERS = ("box2d-iou", "mask-iou", "box3d-iou", "center-distance")
 
 
 @app.command()
@@ -46,7 +51,12 @@ def evaluate(
     matcher: Annotated[
         str, typer.Option("--matcher", help=f"Matcher type. One of: {_MATCHERS}.")
     ] = "box2d-iou",
-    threshold: Annotated[float, typer.Option("--threshold", help="IoU threshold.")] = 0.5,
+    threshold: Annotated[
+        float, typer.Option("--threshold", help="IoU threshold (box2d-iou, mask-iou, box3d-iou).")
+    ] = 0.5,
+    max_distance: Annotated[
+        float, typer.Option("--max-distance", help="Max center distance for center-distance matcher.")
+    ] = 0.5,
     metrics: Annotated[
         list[str] | None, typer.Option("--metrics", help="Metrics to compute.")
     ] = None,
@@ -71,8 +81,12 @@ def evaluate(
 
     if matcher == "box2d-iou":
         active_matcher = Box2DIoUMatcher(threshold=threshold)
-    else:
+    elif matcher == "mask-iou":
         active_matcher = MaskIoUMatcher(threshold=threshold)
+    elif matcher == "box3d-iou":
+        active_matcher = Box3DIoUMatcher(threshold=threshold)
+    else:
+        active_matcher = CenterDistanceMatcher(max_distance=max_distance)
 
     evaluator = TrackingEvaluator(matcher=active_matcher, metrics=metric_instances)
     results = evaluator.evaluate(gt_seq, pred_seq)

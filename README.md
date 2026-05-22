@@ -161,11 +161,37 @@ track-metrics evaluate \
   --output results_mask.json
 ```
 
+### 3D tracking — Box IoU
+
+```bash
+track-metrics evaluate \
+  --gt examples/gt_3d.json \
+  --pred examples/pred_3d.json \
+  --matcher box3d-iou \
+  --threshold 0.25 \
+  --metrics counts --metrics mota --metrics motp --metrics idsw --metrics idf1 \
+  --metrics mean-box3d-iou --metrics mean-center-dist-3d \
+  --output results_3d.json
+```
+
+### 3D tracking — Center distance
+
+```bash
+track-metrics evaluate \
+  --gt examples/gt_3d.json \
+  --pred examples/pred_3d.json \
+  --matcher center-distance \
+  --max-distance 0.5 \
+  --metrics counts --metrics mota --metrics motp --metrics idsw --metrics idf1 \
+  --metrics mean-center-dist-3d \
+  --output results_3d_dist.json
+```
+
 Pass `--metrics` once per metric name. Omitting `--metrics` entirely runs all metrics.
 
-Supported matchers: `box2d-iou`, `mask-iou`.
+Supported matchers: `box2d-iou`, `mask-iou`, `box3d-iou`, `center-distance`.
 
-## Supported Metrics (v0.2)
+## Supported Metrics (v0.3)
 
 | Metric | Description |
 |--------|-------------|
@@ -176,21 +202,51 @@ Supported matchers: `box2d-iou`, `mask-iou`.
 | `Pred` | Total predicted detections |
 | `IDSW` | Number of identity switches |
 | `MOTA` | Multi-Object Tracking Accuracy: `1 - (FN + FP + IDSW) / GT` |
-| `MOTP` | Average similarity of matched pairs (IoU for box matcher; mask IoU for mask matcher) |
+| `MOTP` | Average similarity of matched pairs — depends on matcher (see below) |
 | `IDF1` | ID F1 score |
 | `IDP` | ID Precision |
 | `IDR` | ID Recall |
 | `IDTP` | ID True Positives |
 | `IDFP` | ID False Positives |
 | `IDFN` | ID False Negatives |
-| `T-mIoU` | Temporal mean mask IoU over all matched pairs with masks |
-| `T-Dice` | Temporal mean Dice score over all matched pairs with masks |
+| `T-mIoU` | Temporal mean mask IoU over matched pairs with masks |
+| `T-Dice` | Temporal mean Dice score over matched pairs with masks |
+| `MeanBox3DIoU` | Average axis-aligned 3D IoU over matched pairs with 3D boxes |
+| `MeanCenterDist3D` | Average Euclidean center distance (raw, in world units) over matched pairs with 3D boxes |
 
-`MOTP` always reflects the matcher's similarity measure. With `box2d-iou` it is average box IoU; with `mask-iou` it is average mask IoU. `T-mIoU` specifically measures mask IoU regardless of which matcher was used.
+### MOTP vs MeanBox3DIoU vs MeanCenterDist3D
+
+`MOTP` always reflects the matcher's internal similarity measure:
+- `box2d-iou` → average box IoU (0–1)
+- `mask-iou` → average mask IoU (0–1)
+- `box3d-iou` → average 3D IoU (0–1)
+- `center-distance` → average normalized similarity `max(0, 1 - d/max_distance)` (0–1)
+
+`MeanBox3DIoU` re-computes axis-aligned 3D IoU directly from matched detections — useful when you ran center-distance matching but still want the IoU quality.
+
+`MeanCenterDist3D` reports the raw Euclidean center distance in world units. Use this to interpret `center-distance` matching results in physical terms (e.g., meters).
+
+## 3D Box Format
+
+```json
+{
+  "track_id": 1,
+  "class_id": "car",
+  "bbox3d": {
+    "center": [x, y, z],
+    "size": [dx, dy, dz],
+    "yaw": 1.57
+  }
+}
+```
+
+`yaw` is optional. Axis-aligned IoU ignores it (stored for future oriented IoU support). A detection may contain `bbox2d`, `mask`, and `bbox3d` simultaneously.
+
+See [docs/3d_tracking.md](docs/3d_tracking.md) for recommended thresholds and more details.
 
 ## Current Limitations
 
-- 3D boxes are not supported.
+- Oriented 3D IoU (using yaw) is not yet implemented.
 - HOTA is not implemented.
 - Visualization tools are not included.
 - No dataset-specific adapters. Bring your own converter to the JSON format above.

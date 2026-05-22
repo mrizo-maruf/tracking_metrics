@@ -8,6 +8,7 @@ from typing import Any
 import numpy as np
 
 from tracking_metrics.data.boxes import Box2D
+from tracking_metrics.data.boxes3d import Box3D
 from tracking_metrics.data.detection import Detection
 from tracking_metrics.data.frame import Frame
 from tracking_metrics.data.masks import Mask2D
@@ -75,7 +76,26 @@ def _serialize_mask(mask: Mask2D) -> dict[str, Any]:
     raise ValueError("Mask2D has neither data nor rle set.")
 
 
-_KNOWN_DET_KEYS = {"track_id", "class_id", "score", "bbox2d", "mask"}
+def _parse_box3d(b: dict[str, Any]) -> Box3D:
+    center_raw = b["center"]
+    size_raw = b["size"]
+    center: tuple[float, float, float] = (float(center_raw[0]), float(center_raw[1]), float(center_raw[2]))
+    size: tuple[float, float, float] = (float(size_raw[0]), float(size_raw[1]), float(size_raw[2]))
+    yaw = float(b["yaw"]) if "yaw" in b and b["yaw"] is not None else None
+    return Box3D(center=center, size=size, yaw=yaw)
+
+
+def _serialize_box3d(box: Box3D) -> dict[str, Any]:
+    d: dict[str, Any] = {
+        "center": list(box.center),
+        "size": list(box.size),
+    }
+    if box.yaw is not None:
+        d["yaw"] = box.yaw
+    return d
+
+
+_KNOWN_DET_KEYS = {"track_id", "class_id", "score", "bbox2d", "mask", "bbox3d"}
 
 
 def _sequence_from_dict(data: dict) -> Sequence:  # type: ignore[type-arg]
@@ -97,6 +117,10 @@ def _sequence_from_dict(data: dict) -> Sequence:  # type: ignore[type-arg]
             if "mask" in dd and dd["mask"] is not None:
                 mask = _parse_mask(dd["mask"])
 
+            bbox3d = None
+            if "bbox3d" in dd and dd["bbox3d"] is not None:
+                bbox3d = _parse_box3d(dd["bbox3d"])
+
             det = Detection(
                 frame_id=int(fd["frame_id"]),
                 track_id=str(dd["track_id"]),
@@ -104,6 +128,7 @@ def _sequence_from_dict(data: dict) -> Sequence:  # type: ignore[type-arg]
                 score=dd.get("score"),
                 bbox2d=bbox2d,
                 mask=mask,
+                bbox3d=bbox3d,
                 attributes={k: v for k, v in dd.items() if k not in _KNOWN_DET_KEYS},
             )
             detections.append(det)
@@ -126,6 +151,8 @@ def _sequence_to_dict(seq: Sequence) -> dict:  # type: ignore[type-arg]
                 dd["bbox2d"] = [b.x1, b.y1, b.x2, b.y2]
             if det.mask is not None:
                 dd["mask"] = _serialize_mask(det.mask)
+            if det.bbox3d is not None:
+                dd["bbox3d"] = _serialize_box3d(det.bbox3d)
             dd.update(det.attributes)
             detections.append(dd)
         frames.append({"frame_id": frame.frame_id, "detections": detections})
