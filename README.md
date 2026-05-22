@@ -8,7 +8,13 @@ A clean, installable Python library for evaluating multi-object tracking from co
 pip install -e .
 ```
 
-Or with development dependencies:
+With RLE mask support (requires `pycocotools`):
+
+```bash
+pip install -e ".[masks]"
+```
+
+With development dependencies:
 
 ```bash
 pip install -e ".[dev]"
@@ -37,11 +43,42 @@ Both ground-truth and prediction files use the same format:
 }
 ```
 
-- `track_id` may be an integer or string; it is always stored as `str` internally.
+- `track_id` may be an integer or string; always stored as `str` internally.
 - `class_id` and `score` are optional.
 - `bbox2d` is `[x1, y1, x2, y2]` in pixel coordinates.
+- A detection can contain both `bbox2d` and `mask`, or neither.
+
+### Mask extension
+
+Dense binary mask:
+
+```json
+{
+  "track_id": 1,
+  "mask": {
+    "type": "binary",
+    "size": [H, W],
+    "data": [[0, 1, 1, 0], ...]
+  }
+}
+```
+
+RLE mask (requires `pycocotools`):
+
+```json
+{
+  "track_id": 1,
+  "mask": {
+    "type": "rle",
+    "size": [480, 640],
+    "counts": "encoded_counts_here"
+  }
+}
+```
 
 ## Python API
+
+### 2D Box Tracking
 
 ```python
 from tracking_metrics.data.sequence import Sequence
@@ -66,6 +103,27 @@ results = evaluator.evaluate(gt, pred)
 print_results_table(results)
 ```
 
+### 2D Mask Tracking
+
+```python
+from tracking_metrics.matching.mask_iou_matcher import MaskIoUMatcher
+from tracking_metrics.metrics.temporal_iou import TemporalIoUMetric
+
+gt = Sequence.from_json("gt_masks.json")
+pred = Sequence.from_json("pred_masks.json")
+
+matcher = MaskIoUMatcher(threshold=0.5)
+metrics = [
+    DetectionCountsMetric(), IDSwitchesMetric(),
+    MOTAMetric(), MOTPMetric(), IDF1Metric(), TemporalIoUMetric(),
+]
+
+evaluator = TrackingEvaluator(matcher=matcher, metrics=metrics)
+results = evaluator.evaluate(gt, pred)
+
+print_results_table(results)
+```
+
 Access frame-level events directly:
 
 ```python
@@ -79,6 +137,8 @@ for fr in evaluation_result.frame_results:
 
 ## CLI
 
+### Box tracking
+
 ```bash
 track-metrics evaluate \
   --gt examples/gt.json \
@@ -89,13 +149,23 @@ track-metrics evaluate \
   --output results.json
 ```
 
-If `--output` is omitted, results are printed to the terminal only.
+### Mask tracking
+
+```bash
+track-metrics evaluate \
+  --gt examples/gt_masks.json \
+  --pred examples/pred_masks.json \
+  --matcher mask-iou \
+  --threshold 0.5 \
+  --metrics counts --metrics mota --metrics motp --metrics idsw --metrics idf1 --metrics t-miou \
+  --output results_mask.json
+```
 
 Pass `--metrics` once per metric name. Omitting `--metrics` entirely runs all metrics.
 
-Supported `--metrics` values: `counts`, `mota`, `motp`, `idsw`, `idf1`.
+Supported matchers: `box2d-iou`, `mask-iou`.
 
-## Supported Metrics (v0.1)
+## Supported Metrics (v0.2)
 
 | Metric | Description |
 |--------|-------------|
@@ -106,19 +176,22 @@ Supported `--metrics` values: `counts`, `mota`, `motp`, `idsw`, `idf1`.
 | `Pred` | Total predicted detections |
 | `IDSW` | Number of identity switches |
 | `MOTA` | Multi-Object Tracking Accuracy: `1 - (FN + FP + IDSW) / GT` |
-| `MOTP` | Multi-Object Tracking Precision: average IoU of matched pairs |
+| `MOTP` | Average similarity of matched pairs (IoU for box matcher; mask IoU for mask matcher) |
 | `IDF1` | ID F1 score |
 | `IDP` | ID Precision |
 | `IDR` | ID Recall |
 | `IDTP` | ID True Positives |
 | `IDFP` | ID False Positives |
 | `IDFN` | ID False Negatives |
+| `T-mIoU` | Temporal mean mask IoU over all matched pairs with masks |
+| `T-Dice` | Temporal mean Dice score over all matched pairs with masks |
+
+`MOTP` always reflects the matcher's similarity measure. With `box2d-iou` it is average box IoU; with `mask-iou` it is average mask IoU. `T-mIoU` specifically measures mask IoU regardless of which matcher was used.
 
 ## Current Limitations
 
-- Only 2D bounding box matching is supported (IoU-based). Masks and 3D boxes will be added in a later version.
-- Only one matcher is available: `box2d-iou`. Additional matchers (e.g., center-distance, 3D IoU) are planned.
-- HOTA is not implemented in v0.1.
+- 3D boxes are not supported.
+- HOTA is not implemented.
 - Visualization tools are not included.
 - No dataset-specific adapters. Bring your own converter to the JSON format above.
 

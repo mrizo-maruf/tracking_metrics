@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tracking-metrics"
-version = "0.1.0"
+version = "0.2.0"
 description = "Dataset-independent Python library for evaluating multi-object tracking"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -21,6 +21,7 @@ dependencies = [
 track-metrics = "tracking_metrics.cli.evaluate:app"
 
 [project.optional-dependencies]
+masks = ["pycocotools"]
 dev = [
     "pytest",
     "ruff",

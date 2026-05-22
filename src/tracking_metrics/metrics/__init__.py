@@ -4,6 +4,7 @@ from tracking_metrics.metrics.id_switches import IDSwitchesMetric
 from tracking_metrics.metrics.idf1 import IDF1Metric
 from tracking_metrics.metrics.mota import MOTAMetric
 from tracking_metrics.metrics.motp import MOTPMetric
+from tracking_metrics.metrics.temporal_iou import TemporalDiceMetric, TemporalIoUMetric
 
 __all__ = [
     "Metric",
@@ -12,4 +13,6 @@ __all__ = [
     "IDF1Metric",
     "MOTAMetric",
     "MOTPMetric",
+    "TemporalIoUMetric",
+    "TemporalDiceMetric",
 ]

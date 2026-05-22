@@ -8,11 +8,13 @@ import typer
 from tracking_metrics.data.sequence import Sequence
 from tracking_metrics.evaluation.evaluator import TrackingEvaluator
 from tracking_metrics.matching.box2d_iou_matcher import Box2DIoUMatcher
+from tracking_metrics.matching.mask_iou_matcher import MaskIoUMatcher
 from tracking_metrics.metrics.detection_counts import DetectionCountsMetric
 from tracking_metrics.metrics.id_switches import IDSwitchesMetric
 from tracking_metrics.metrics.idf1 import IDF1Metric
 from tracking_metrics.metrics.mota import MOTAMetric
 from tracking_metrics.metrics.motp import MOTPMetric
+from tracking_metrics.metrics.temporal_iou import TemporalDiceMetric, TemporalIoUMetric
 from tracking_metrics.report.json_report import save_json_report
 from tracking_metrics.report.terminal import print_results_table
 
@@ -23,20 +25,27 @@ app = typer.Typer(help="Evaluate multi-object tracking results.")
 def _root() -> None:
     """tracking-metrics: dataset-independent MOT evaluation library."""
 
+
 _METRIC_MAP = {
     "counts": DetectionCountsMetric,
     "mota": MOTAMetric,
     "motp": MOTPMetric,
     "idsw": IDSwitchesMetric,
     "idf1": IDF1Metric,
+    "t-miou": TemporalIoUMetric,
+    "t-dice": TemporalDiceMetric,
 }
+
+_MATCHERS = ("box2d-iou", "mask-iou")
 
 
 @app.command()
 def evaluate(
     gt: Annotated[Path, typer.Option("--gt", help="Path to ground-truth JSON file.")],
     pred: Annotated[Path, typer.Option("--pred", help="Path to predictions JSON file.")],
-    matcher: Annotated[str, typer.Option("--matcher", help="Matcher type.")] = "box2d-iou",
+    matcher: Annotated[
+        str, typer.Option("--matcher", help=f"Matcher type. One of: {_MATCHERS}.")
+    ] = "box2d-iou",
     threshold: Annotated[float, typer.Option("--threshold", help="IoU threshold.")] = 0.5,
     metrics: Annotated[
         list[str] | None, typer.Option("--metrics", help="Metrics to compute.")
@@ -45,8 +54,8 @@ def evaluate(
         Path | None, typer.Option("--output", help="Path to save JSON report.")
     ] = None,
 ) -> None:
-    if matcher != "box2d-iou":
-        typer.echo(f"Unknown matcher: {matcher}. Only 'box2d-iou' is supported.", err=True)
+    if matcher not in _MATCHERS:
+        typer.echo(f"Unknown matcher: {matcher!r}. Supported: {_MATCHERS}", err=True)
         raise typer.Exit(code=1)
 
     selected_metrics = metrics or list(_METRIC_MAP.keys())
@@ -60,8 +69,12 @@ def evaluate(
     gt_seq = Sequence.from_json(gt)
     pred_seq = Sequence.from_json(pred)
 
-    iou_matcher = Box2DIoUMatcher(threshold=threshold)
-    evaluator = TrackingEvaluator(matcher=iou_matcher, metrics=metric_instances)
+    if matcher == "box2d-iou":
+        active_matcher = Box2DIoUMatcher(threshold=threshold)
+    else:
+        active_matcher = MaskIoUMatcher(threshold=threshold)
+
+    evaluator = TrackingEvaluator(matcher=active_matcher, metrics=metric_instances)
     results = evaluator.evaluate(gt_seq, pred_seq)
 
     print_results_table(results)
