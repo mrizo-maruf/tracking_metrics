@@ -1,28 +1,186 @@
 # tracking-metrics
 
-A clean, installable Python library for evaluating multi-object tracking from common data structures, independent of any dataset.
+A clean, installable Python library for evaluating multi-object tracking — independent of any
+dataset or annotation format.
+
+## Why tracking-metrics?
+
+Most MOT evaluation code is coupled to a single dataset (MOT17, KITTI, nuScenes…). This library
+defines a minimal data model and lets you evaluate any tracker on any dataset with one consistent
+API. Bring your own annotation converter; the evaluation logic is reusable.
+
+---
 
 ## Installation
 
+This package is not on PyPI. Install directly from GitHub or from a local clone.
+
+> **Note:** the install name and import name differ.
+> Install source: `tracking-metrics` · Python import: `tracking_metrics`
+
+### Option 1 — Editable development install (recommended)
+
 ```bash
+git clone git@github.com:<ORG_OR_USER>/tracking-metrics.git
+cd tracking-metrics
 pip install -e .
 ```
 
-With RLE mask support (requires `pycocotools`):
+### Option 2 — Install directly from GitHub
+
+```bash
+pip install git+https://github.com/<ORG_OR_USER>/tracking-metrics.git
+```
+
+Install a specific tag:
+
+```bash
+pip install git+https://github.com/<ORG_OR_USER>/tracking-metrics.git@v0.5.0
+```
+
+### Option 3 — Add to `requirements.txt`
+
+```
+git+https://github.com/<ORG_OR_USER>/tracking-metrics.git
+```
+
+### With COCO RLE mask support
 
 ```bash
 pip install -e ".[masks]"
+# or
+pip install "git+https://github.com/<ORG_OR_USER>/tracking-metrics.git#egg=tracking-metrics[masks]"
 ```
 
-With development dependencies:
+### Development dependencies
 
 ```bash
 pip install -e ".[dev]"
 ```
 
-## JSON Input Format
+### Using from another project (e.g. TAGY)
 
-Both ground-truth and prediction files use the same format:
+```
+~/work/
+├── tagy/
+└── tracking-metrics/
+```
+
+```bash
+conda activate tagy
+cd ~/work/tracking-metrics
+pip install -e .
+```
+
+Then inside your project:
+
+```python
+from tracking_metrics import TrackingEvaluator
+from tracking_metrics.matching import MaskIoUMatcher
+from tracking_metrics.metrics import MOTA, MOTP, IDF1, IDSwitches, HOTA
+```
+
+---
+
+## Quick Python example
+
+```python
+from tracking_metrics import (
+    Sequence, Box2DIoUMatcher, TrackingEvaluator,
+    DetectionCounts, MOTA, MOTP, IDF1, HOTA,
+)
+from tracking_metrics.report import print_results_table
+
+gt   = Sequence.from_json("gt.json")
+pred = Sequence.from_json("pred.json")
+
+evaluator = TrackingEvaluator(
+    matcher=Box2DIoUMatcher(threshold=0.5),
+    metrics=[DetectionCounts(), MOTA(), MOTP(), IDF1(), HOTA()],
+)
+results = evaluator.evaluate(gt, pred)
+print_results_table(results)
+```
+
+---
+
+## Quick CLI example
+
+```bash
+track-metrics evaluate \
+  --gt gt.json --pred pred.json \
+  --matcher box2d-iou --threshold 0.5 \
+  --metrics counts --metrics mota --metrics idf1 --metrics hota \
+  --output results.json
+```
+
+---
+
+## Supported modalities
+
+### 2D boxes
+
+```python
+from tracking_metrics import Box2DIoUMatcher, Box2D
+matcher = Box2DIoUMatcher(threshold=0.5)
+```
+
+### 2D masks
+
+```python
+from tracking_metrics import MaskIoUMatcher
+matcher = MaskIoUMatcher(threshold=0.5)
+```
+
+Requires `mask` field in detections (binary array or COCO RLE). See [docs/masks.md](docs/masks.md).
+
+### 3D boxes
+
+```python
+from tracking_metrics import Box3DIoUMatcher, CenterDistanceMatcher
+matcher = Box3DIoUMatcher(threshold=0.25)
+# or
+matcher = CenterDistanceMatcher(max_distance=0.5)
+```
+
+See [docs/3d_tracking.md](docs/3d_tracking.md).
+
+---
+
+## Supported matchers
+
+| Matcher | Class | Threshold |
+|---------|-------|-----------|
+| 2D box IoU | `Box2DIoUMatcher` | `threshold` (IoU) |
+| 2D mask IoU | `MaskIoUMatcher` | `threshold` (IoU) |
+| 3D box IoU | `Box3DIoUMatcher` | `threshold` (IoU) |
+| Center distance | `CenterDistanceMatcher` | `max_distance` (world units) |
+
+All matchers accept `class_aware=True` to restrict matching to same-class detections.
+
+---
+
+## Supported metrics
+
+| Key | Class | Description |
+|-----|-------|-------------|
+| `TP/FP/FN/GT/Pred` | `DetectionCounts` | Detection count statistics |
+| `IDSW` | `IDSwitches` | Identity switches |
+| `MOTA` | `MOTA` | Multi-Object Tracking Accuracy |
+| `MOTP` | `MOTP` | Multi-Object Tracking Precision |
+| `IDF1/IDP/IDR` | `IDF1` | Identity F1 score |
+| `HOTA/DetA/AssA/LocA` | `HOTA` | Higher Order Tracking Accuracy |
+| `Frag` | `Fragmentations` | GT track fragmentation count |
+| `MT/PT/ML` | `TrackCoverage` | Mostly/Partially/Mostly-Lost track counts |
+| `T-SR` | `TrackSurvivalRate` | Fraction of GT tracks with ≥1 match |
+| `IDCons` | `IDConsistency` | Mean majority-ID consistency per GT track |
+| `T-mIoU/T-Dice` | `TemporalIoU` | Temporal mask metrics (mask tracking) |
+| `MeanBox3DIoU` | `MeanBox3DIoU` | Mean 3D IoU of matched pairs |
+| `MeanCenterDist3D` | `MeanCenterDistance3D` | Mean center distance of matched pairs |
+
+---
+
+## Data format
 
 ```json
 {
@@ -31,296 +189,99 @@ Both ground-truth and prediction files use the same format:
     {
       "frame_id": 0,
       "detections": [
-        {
-          "track_id": 1,
-          "class_id": "person",
-          "score": 0.98,
-          "bbox2d": [x1, y1, x2, y2]
-        }
+        {"track_id": "1", "bbox2d": [x1, y1, x2, y2]},
+        {"track_id": "2", "bbox2d": [x1, y1, x2, y2], "class_id": "car", "score": 0.95}
       ]
     }
   ]
 }
 ```
 
-- `track_id` may be an integer or string; always stored as `str` internally.
-- `class_id` and `score` are optional.
-- `bbox2d` is `[x1, y1, x2, y2]` in pixel coordinates.
-- A detection can contain both `bbox2d` and `mask`, or neither.
+`track_id` may be integer or string. `class_id` and `score` are optional.
+A detection may include `bbox2d`, `mask`, and `bbox3d` simultaneously.
 
-### Mask extension
+See [docs/data_format.md](docs/data_format.md) for full format documentation.
 
-Dense binary mask:
+---
 
-```json
-{
-  "track_id": 1,
-  "mask": {
-    "type": "binary",
-    "size": [H, W],
-    "data": [[0, 1, 1, 0], ...]
-  }
-}
-```
+## Batch evaluation
 
-RLE mask (requires `pycocotools`):
-
-```json
-{
-  "track_id": 1,
-  "mask": {
-    "type": "rle",
-    "size": [480, 640],
-    "counts": "encoded_counts_here"
-  }
-}
-```
-
-## Python API
-
-### 2D Box Tracking
+Evaluate multiple sequences and get per-sequence, averaged, and global aggregated metrics:
 
 ```python
-from tracking_metrics.data.sequence import Sequence
-from tracking_metrics.evaluation.evaluator import TrackingEvaluator
-from tracking_metrics.matching.box2d_iou_matcher import Box2DIoUMatcher
-from tracking_metrics.metrics.detection_counts import DetectionCountsMetric
-from tracking_metrics.metrics.id_switches import IDSwitchesMetric
-from tracking_metrics.metrics.idf1 import IDF1Metric
-from tracking_metrics.metrics.mota import MOTAMetric
-from tracking_metrics.metrics.motp import MOTPMetric
-from tracking_metrics.report.terminal import print_results_table
+from tracking_metrics.evaluation.batch import BatchEvaluator, SequencePair
 
-gt = Sequence.from_json("gt.json")
-pred = Sequence.from_json("pred.json")
-
-matcher = Box2DIoUMatcher(threshold=0.5)
-metrics = [DetectionCountsMetric(), IDSwitchesMetric(), MOTAMetric(), MOTPMetric(), IDF1Metric()]
-
-evaluator = TrackingEvaluator(matcher=matcher, metrics=metrics)
-results = evaluator.evaluate(gt, pred)
-
-print_results_table(results)
-```
-
-### 2D Mask Tracking
-
-```python
-from tracking_metrics.matching.mask_iou_matcher import MaskIoUMatcher
-from tracking_metrics.metrics.temporal_iou import TemporalIoUMetric
-
-gt = Sequence.from_json("gt_masks.json")
-pred = Sequence.from_json("pred_masks.json")
-
-matcher = MaskIoUMatcher(threshold=0.5)
-metrics = [
-    DetectionCountsMetric(), IDSwitchesMetric(),
-    MOTAMetric(), MOTPMetric(), IDF1Metric(), TemporalIoUMetric(),
+pairs = [
+    SequencePair("scene_001", gt1, pred1),
+    SequencePair("scene_002", gt2, pred2),
 ]
 
-evaluator = TrackingEvaluator(matcher=matcher, metrics=metrics)
-results = evaluator.evaluate(gt, pred)
+batch = BatchEvaluator(evaluator)
+results = batch.evaluate(pairs)
 
-print_results_table(results)
+results["sequences"]["scene_001"]  # per-sequence scores
+results["average"]                 # arithmetic mean of scalar metrics
+results["global"]                  # metrics on merged frame pool
 ```
 
-### Advanced metrics (HOTA, trajectory)
+CLI:
+
+```bash
+track-metrics evaluate-batch \
+  --gt-dir gt/ --pred-dir pred/ \
+  --metrics mota --metrics idf1 --metrics hota \
+  --output batch_results.json
+```
+
+Files are matched by stem: `gt/scene_001.json` ↔ `pred/scene_001.json`.
+
+---
+
+## Config files
+
+```yaml
+# eval_config.yaml
+matcher:
+  type: box2d-iou
+  threshold: 0.5
+
+metrics:
+  - counts
+  - mota
+  - idf1
+  - hota
+
+output:
+  json: results.json
+  csv: results.csv
+  latex: results.tex
+```
+
+```bash
+track-metrics evaluate --gt gt.json --pred pred.json --config eval_config.yaml
+```
+
+---
+
+## Adapter concept
+
+`tracking-metrics` is dataset-independent. Implement the `SequenceAdapter` protocol in your
+project to convert any dataset's format into `Sequence` objects:
 
 ```python
-from tracking_metrics.metrics.hota import HOTAMetric
-from tracking_metrics.metrics.fragmentation import FragmentationsMetric
-from tracking_metrics.metrics.track_coverage import TrackCoverageMetric
-from tracking_metrics.metrics.track_survival import TrackSurvivalRateMetric
-from tracking_metrics.metrics.id_consistency import IDConsistencyMetric
-from tracking_metrics.report.csv_report import save_csv_report
-from tracking_metrics.report.latex_table import save_latex_report
-from tracking_metrics.report.summary import format_summary
+from tracking_metrics.adapters.base import SequenceAdapter, save_sequence_json
 
-metrics = [
-    DetectionCountsMetric(), IDSwitchesMetric(), MOTAMetric(), MOTPMetric(),
-    HOTAMetric(return_curves=True),
-    FragmentationsMetric(),
-    TrackCoverageMetric(),
-    TrackSurvivalRateMetric(),
-    IDConsistencyMetric(),
-]
+class MyDatasetAdapter:
+    def load_ground_truth(self, path) -> Sequence: ...
+    def load_predictions(self, path) -> Sequence: ...
 
-evaluator = TrackingEvaluator(matcher=matcher, metrics=metrics)
-results = evaluator.evaluate(gt, pred)
-
-save_csv_report(results, "results.csv")
-save_latex_report(results, "results.tex", caption="Tracking results")
-print(format_summary(results))
+adapter = MyDatasetAdapter()
+gt = adapter.load_ground_truth("annotations/")
 ```
 
-Access frame-level events directly:
+See [docs/adapters.md](docs/adapters.md) and `examples/custom_adapter.py`.
 
-```python
-evaluation_result = evaluator.evaluate_events(gt, pred)
-
-for fr in evaluation_result.frame_results:
-    print(f"Frame {fr.frame_id}: {len(fr.matches)} matches, "
-          f"{len(fr.false_positives)} FP, {len(fr.false_negatives)} FN, "
-          f"{len(fr.id_switches)} ID switches")
-```
-
-## CLI
-
-### Box tracking
-
-```bash
-track-metrics evaluate \
-  --gt examples/gt.json \
-  --pred examples/pred.json \
-  --matcher box2d-iou \
-  --threshold 0.5 \
-  --metrics counts --metrics mota --metrics motp --metrics idsw --metrics idf1 \
-  --output results.json
-```
-
-### Mask tracking
-
-```bash
-track-metrics evaluate \
-  --gt examples/gt_masks.json \
-  --pred examples/pred_masks.json \
-  --matcher mask-iou \
-  --threshold 0.5 \
-  --metrics counts --metrics mota --metrics motp --metrics idsw --metrics idf1 --metrics t-miou \
-  --output results_mask.json
-```
-
-### 3D tracking — Box IoU
-
-```bash
-track-metrics evaluate \
-  --gt examples/gt_3d.json \
-  --pred examples/pred_3d.json \
-  --matcher box3d-iou \
-  --threshold 0.25 \
-  --metrics counts --metrics mota --metrics motp --metrics idsw --metrics idf1 \
-  --metrics mean-box3d-iou --metrics mean-center-dist-3d \
-  --output results_3d.json
-```
-
-### 3D tracking — Center distance
-
-```bash
-track-metrics evaluate \
-  --gt examples/gt_3d.json \
-  --pred examples/pred_3d.json \
-  --matcher center-distance \
-  --max-distance 0.5 \
-  --metrics counts --metrics mota --metrics motp --metrics idsw --metrics idf1 \
-  --metrics mean-center-dist-3d \
-  --output results_3d_dist.json
-```
-
-### HOTA and advanced metrics
-
-```bash
-track-metrics evaluate \
-  --gt examples/gt.json \
-  --pred examples/pred.json \
-  --matcher box2d-iou \
-  --threshold 0.5 \
-  --metrics hota --metrics frag --metrics track-coverage --metrics t-sr --metrics id-cons \
-  --output results.json
-```
-
-With per-threshold HOTA curves:
-
-```bash
-track-metrics evaluate \
-  --gt examples/gt.json --pred examples/pred.json \
-  --metrics hota --hota-curves \
-  --output results.json
-```
-
-Save as CSV or LaTeX:
-
-```bash
-track-metrics evaluate --gt examples/gt.json --pred examples/pred.json --output results.csv
-track-metrics evaluate --gt examples/gt.json --pred examples/pred.json --output results.tex
-```
-
-Pass `--metrics` once per metric name. Omitting `--metrics` entirely runs all metrics.
-
-Supported matchers: `box2d-iou`, `mask-iou`, `box3d-iou`, `center-distance`.
-
-Supported metric names: `counts`, `mota`, `motp`, `idsw`, `idf1`, `t-miou`, `t-dice`,
-`mean-box3d-iou`, `mean-center-dist-3d`, `hota`, `frag`, `track-coverage`, `t-sr`, `id-cons`.
-
-## Supported Metrics (v0.4)
-
-| Metric | Description |
-|--------|-------------|
-| `TP` | True positives (matched detections) |
-| `FP` | False positives (unmatched predictions) |
-| `FN` | False negatives (unmatched ground-truth) |
-| `GT` | Total ground-truth detections |
-| `Pred` | Total predicted detections |
-| `IDSW` | Number of identity switches |
-| `MOTA` | Multi-Object Tracking Accuracy: `1 - (FN + FP + IDSW) / GT` |
-| `MOTP` | Average similarity of matched pairs — depends on matcher (see below) |
-| `IDF1` | ID F1 score |
-| `IDP` | ID Precision |
-| `IDR` | ID Recall |
-| `IDTP` | ID True Positives |
-| `IDFP` | ID False Positives |
-| `IDFN` | ID False Negatives |
-| `T-mIoU` | Temporal mean mask IoU over matched pairs with masks |
-| `T-Dice` | Temporal mean Dice score over matched pairs with masks |
-| `MeanBox3DIoU` | Average axis-aligned 3D IoU over matched pairs with 3D boxes |
-| `MeanCenterDist3D` | Average Euclidean center distance (raw, in world units) over matched pairs with 3D boxes |
-| `HOTA` | Higher Order Tracking Accuracy — joint detection + association quality via threshold sweep |
-| `DetA` | Detection Accuracy component of HOTA |
-| `AssA` | Association Accuracy component of HOTA |
-| `LocA` | Localization Accuracy (mean similarity of matched pairs across thresholds) |
-| `OWTA` | Open-World Tracking Accuracy |
-| `DetRe` / `DetPr` | Detection Recall / Precision |
-| `AssRe` / `AssPr` | Association Recall / Precision |
-| `Frag` | Number of GT track fragmentations (breaks and re-appearances) |
-| `MT` / `PT` / `ML` | Mostly Tracked / Partially Tracked / Mostly Lost track counts |
-| `MT%` / `PT%` / `ML%` | Track coverage percentages |
-| `T-SR` | Track Survival Rate — fraction of GT tracks with at least one match |
-| `IDCons` | ID Consistency — average fraction of matched frames using the majority predicted ID |
-
-### MOTP vs MeanBox3DIoU vs MeanCenterDist3D
-
-`MOTP` always reflects the matcher's internal similarity measure:
-- `box2d-iou` → average box IoU (0–1)
-- `mask-iou` → average mask IoU (0–1)
-- `box3d-iou` → average 3D IoU (0–1)
-- `center-distance` → average normalized similarity `max(0, 1 - d/max_distance)` (0–1)
-
-`MeanBox3DIoU` re-computes axis-aligned 3D IoU directly from matched detections — useful when you ran center-distance matching but still want the IoU quality.
-
-`MeanCenterDist3D` reports the raw Euclidean center distance in world units. Use this to interpret `center-distance` matching results in physical terms (e.g., meters).
-
-## 3D Box Format
-
-```json
-{
-  "track_id": 1,
-  "class_id": "car",
-  "bbox3d": {
-    "center": [x, y, z],
-    "size": [dx, dy, dz],
-    "yaw": 1.57
-  }
-}
-```
-
-`yaw` is optional. Axis-aligned IoU ignores it (stored for future oriented IoU support). A detection may contain `bbox2d`, `mask`, and `bbox3d` simultaneously.
-
-See [docs/3d_tracking.md](docs/3d_tracking.md) for recommended thresholds and more details.
-
-## Current Limitations
-
-- Oriented 3D IoU (using yaw) is not yet implemented.
-- Visualization tools are not included.
-- No dataset-specific adapters. Bring your own converter to the JSON format above.
+---
 
 ## Development
 
@@ -328,4 +289,17 @@ See [docs/3d_tracking.md](docs/3d_tracking.md) for recommended thresholds and mo
 pip install -e ".[dev]"
 pytest
 ruff check .
+mypy src
 ```
+
+See [RELEASE.md](RELEASE.md) for the release checklist and [CHANGELOG.md](CHANGELOG.md) for
+version history.
+
+---
+
+## Limitations
+
+- Oriented 3D IoU (using yaw) is not yet implemented.
+- HOTA is computed globally per sequence; multi-sequence HOTA is averaged over sequences.
+- Visualization tools are not included.
+- No dataset-specific adapters in the core library. Bring your own converter.

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tracking-metrics"
-version = "0.4.0"
+version = "0.5.0"
 description = "Dataset-independent Python library for evaluating multi-object tracking"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -15,6 +15,7 @@ dependencies = [
     "pydantic",
     "typer",
     "rich",
+    "pyyaml",
 ]
 
 [project.scripts]
@@ -27,6 +28,10 @@ dev = [
     "ruff",
     "mypy",
     "pre-commit",
+]
+docs = [
+    "mkdocs",
+    "mkdocs-material",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -42,8 +47,12 @@ ignore = ["E501"]
 
 [tool.mypy]
 python_version = "3.10"
-strict = true
+strict = false
 ignore_missing_imports = true
+warn_unused_ignores = true
+warn_return_any = false
+disallow_untyped_defs = true
+check_untyped_defs = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

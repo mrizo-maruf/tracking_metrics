@@ -1,0 +1,19 @@
+{
+  "sequence_name": "scene_002",
+  "frames": [
+    {
+      "frame_id": 0,
+      "detections": [
+        {"track_id": "X", "bbox2d": [51, 51, 101, 101]},
+        {"track_id": "Y", "bbox2d": [301, 301, 361, 361]}
+      ]
+    },
+    {
+      "frame_id": 1,
+      "detections": [
+        {"track_id": "X", "bbox2d": [56, 56, 106, 106]},
+        {"track_id": "Y", "bbox2d": [306, 306, 366, 366]}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+matcher:
+  type: mask-iou
+  threshold: 0.5
+  class_aware: false
+
+metrics:
+  - counts
+  - mota
+  - motp
+  - idsw
+  - idf1
+  - t-miou
+  - t-sr
+  - id-cons
+
+output:
+  json: results_mask.json
+  csv: results_mask.csv
