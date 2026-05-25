@@ -17,3 +17,4 @@ env/
 htmlcov/
 .coverage
 *.log
+*.png

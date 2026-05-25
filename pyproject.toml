@@ -23,6 +23,7 @@ track-metrics = "tracking_metrics.cli.evaluate:app"
 
 [project.optional-dependencies]
 masks = ["pycocotools"]
+viz = ["matplotlib"]
 dev = [
     "pytest",
     "ruff",

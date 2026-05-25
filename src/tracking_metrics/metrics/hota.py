@@ -50,10 +50,16 @@ class HOTAMetric:
         }
 
         if self._return_curves:
+            out["thresholds"] = self._thresholds.tolist()
             out["HOTA_curve"] = curves["hota"]
             out["DetA_curve"] = curves["det_a"]
             out["AssA_curve"] = curves["ass_a"]
             out["LocA_curve"] = curves["loc_a"]
+            out["OWTA_curve"] = curves["owta"]
+            out["DetRe_curve"] = curves["det_re"]
+            out["DetPr_curve"] = curves["det_pr"]
+            out["AssRe_curve"] = curves["ass_re"]
+            out["AssPr_curve"] = curves["ass_pr"]
 
         return out
 

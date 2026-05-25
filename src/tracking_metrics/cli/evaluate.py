@@ -256,3 +256,97 @@ def evaluate_batch(
 
     if output is not None:
         _save_output(results, output)
+
+
+@app.command()
+def visualize(
+    results_file: Annotated[
+        Path, typer.Option("--results", help="Path to JSON results file (from evaluate --output).")
+    ],
+    output_dir: Annotated[
+        Path, typer.Option("--output-dir", help="Directory to save plots.")
+    ] = Path("plots"),
+    title: Annotated[
+        str, typer.Option("--title", help="Base title for figures.")
+    ] = "",
+) -> None:
+    """Generate metric summary and HOTA curve plots from a results JSON file."""
+    from tracking_metrics.report.json_report import load_json_report
+    from tracking_metrics.visualization.curves import plot_hota_curves
+    from tracking_metrics.visualization.summary import plot_metric_summary
+
+    try:
+        results = load_json_report(results_file)
+    except FileNotFoundError:
+        typer.echo(f"Results file not found: {results_file}", err=True)
+        raise typer.Exit(code=1)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    summary_path = output_dir / "summary.png"
+    plot_metric_summary(results, save_path=summary_path, title=title or "Tracking Metrics Summary")
+    typer.echo(f"Saved: {summary_path}")
+
+    curve_keys = {"HOTA_curve", "DetA_curve", "AssA_curve", "LocA_curve"}
+    if curve_keys & set(results.keys()):
+        curves_path = output_dir / "hota_curves.png"
+        plot_hota_curves(results, save_path=curves_path, title=title or "HOTA Curves")
+        typer.echo(f"Saved: {curves_path}")
+    else:
+        typer.echo(
+            "No HOTA curve data in results. Re-run evaluate with 'hota' metric and --hota-curves."
+        )
+
+
+@app.command(name="visualize-events")
+def visualize_events(
+    gt: Annotated[Path, typer.Option("--gt", help="Path to ground-truth JSON file.")],
+    pred: Annotated[Path, typer.Option("--pred", help="Path to predictions JSON file.")],
+    matcher: Annotated[
+        str, typer.Option("--matcher", help=f"Matcher type. One of: {_MATCHERS}.")
+    ] = "box2d-iou",
+    threshold: Annotated[
+        float, typer.Option("--threshold", help="IoU threshold.")
+    ] = 0.5,
+    max_distance: Annotated[
+        float, typer.Option("--max-distance", help="Max center distance.")
+    ] = 0.5,
+    output_dir: Annotated[
+        Path, typer.Option("--output-dir", help="Directory to save plots.")
+    ] = Path("plots"),
+    title: Annotated[
+        str, typer.Option("--title", help="Base title for figures.")
+    ] = "",
+) -> None:
+    """Run event evaluation and generate all event-level plots."""
+    from tracking_metrics.visualization.association import plot_association_heatmap
+    from tracking_metrics.visualization.id_switches import plot_id_switch_timeline
+    from tracking_metrics.visualization.timeline import (
+        plot_frame_timeline,
+        plot_track_coverage,
+        plot_track_survival,
+    )
+
+    _validate_matcher(matcher)
+    active_matcher = _build_matcher(matcher, threshold, max_distance)
+    evaluator = TrackingEvaluator(matcher=active_matcher, metrics=[])
+
+    gt_seq = Sequence.from_json(gt)
+    pred_seq = Sequence.from_json(pred)
+    result = evaluator.evaluate_events(gt_seq, pred_seq)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    seq_title = title or result.sequence_name
+
+    plots = [
+        ("frame_timeline.png", lambda p: plot_frame_timeline(result, save_path=p, title=f"{seq_title} – Per-Frame Events")),
+        ("track_coverage.png", lambda p: plot_track_coverage(result, save_path=p, title=f"{seq_title} – Track Coverage")),
+        ("track_survival.png", lambda p: plot_track_survival(result, save_path=p, title=f"{seq_title} – Track Survival")),
+        ("id_switches.png", lambda p: plot_id_switch_timeline(result, save_path=p, title=f"{seq_title} – ID Switches")),
+        ("association.png", lambda p: plot_association_heatmap(result, save_path=p, title=f"{seq_title} – Association")),
+    ]
+
+    for filename, fn in plots:
+        path = output_dir / filename
+        fn(path)
+        typer.echo(f"Saved: {path}")

@@ -92,13 +92,17 @@ class TrackingEvaluator:
             frame_results=frame_results,
         )
 
+    def compute_metrics(self, result: EvaluationResult) -> dict[str, Any]:
+        """Run all configured metrics on an already-computed EvaluationResult."""
+        output: dict[str, Any] = {}
+        for metric in self._metrics:
+            output.update(metric.compute(result))
+        return output
+
     def evaluate(
         self,
         gt_sequence: Sequence,
         pred_sequence: Sequence,
     ) -> dict[str, Any]:
         result = self.evaluate_events(gt_sequence, pred_sequence)
-        output: dict[str, Any] = {}
-        for metric in self._metrics:
-            output.update(metric.compute(result))
-        return output
+        return self.compute_metrics(result)

@@ -283,6 +283,50 @@ See [docs/adapters.md](docs/adapters.md) and `examples/custom_adapter.py`.
 
 ---
 
+## Visualization
+
+An optional matplotlib-based visualization layer is included.
+
+Install with:
+
+```bash
+pip install -e '.[viz]'
+```
+
+```python
+from tracking_metrics.visualization import (
+    plot_metric_summary,
+    plot_hota_curves,
+    plot_frame_timeline,
+    plot_track_coverage,
+    plot_association_heatmap,
+)
+
+eval_result = evaluator.evaluate_events(gt_seq, pred_seq)
+metric_results = evaluator.compute_metrics(eval_result)
+
+plot_metric_summary(metric_results, save_path="summary.png")
+plot_hota_curves(metric_results, save_path="hota_curves.png")
+plot_frame_timeline(eval_result, save_path="timeline.png")
+plot_track_coverage(eval_result, save_path="coverage.png")
+plot_association_heatmap(eval_result, save_path="association.png")
+```
+
+**CLI visualization commands:**
+
+```bash
+# Generate summary + HOTA curves from a results JSON
+track-metrics visualize --results results.json --output-dir plots/
+
+# Run evaluation and generate all event-level plots
+track-metrics visualize-events --gt gt.json --pred pred.json --output-dir plots/
+```
+
+See [docs/visualization.md](docs/visualization.md) and
+[examples/visualize_results.py](examples/visualize_results.py).
+
+---
+
 ## Development
 
 ```bash
@@ -301,5 +345,5 @@ version history.
 
 - Oriented 3D IoU (using yaw) is not yet implemented.
 - HOTA is computed globally per sequence; multi-sequence HOTA is averaged over sequences.
-- Visualization tools are not included.
+- Visualization requires the optional `[viz]` extra (`pip install -e '.[viz]'`).
 - No dataset-specific adapters in the core library. Bring your own converter.
