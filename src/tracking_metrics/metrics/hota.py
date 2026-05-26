@@ -106,7 +106,7 @@ class HOTAMetric:
         # Detection scores
         det_re = tp / (tp + fn + _EPS)
         det_pr = tp / (tp + fp + _EPS)
-        det_a = np.sqrt(det_re * det_pr)
+        det_a = tp / (tp + fp + fn + _EPS)   # Jaccard index (HOTA paper eq. 3)
         loc_a = total_sim / (tp + _EPS)
 
         # Association scores
